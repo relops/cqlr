@@ -3,7 +3,7 @@ cqlr
 
 cqlr extends the [gocql][] runtime API and adds the ability to auto-bind a CQL iterator to a struct:
 
-```
+```go
 type Tweet struct {
 	Timeline string
 	Id       gocql.UUID
