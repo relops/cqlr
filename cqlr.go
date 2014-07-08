@@ -7,12 +7,17 @@ import (
 )
 
 type Binding struct {
-	err  error
-	iter *gocql.Iter
+	err        error
+	iter       *gocql.Iter
+	preferTags bool
 }
 
 func Bind(iter *gocql.Iter) *Binding {
 	return &Binding{iter: iter}
+}
+
+func BindTag(iter *gocql.Iter) *Binding {
+	return &Binding{iter: iter, preferTags: true}
 }
 
 func (b *Binding) Close() error {
@@ -29,19 +34,42 @@ func (b *Binding) Scan(dest interface{}) bool {
 
 	cols := b.iter.Columns()
 	values := make([]interface{}, len(cols))
+	indirect := reflect.Indirect(v)
 
-	for i, col := range cols {
-		f := reflect.Indirect(v).FieldByName(col.Name)
+	// Right now, this is all experimental to try to tease out the right API
 
-		if !f.IsValid() {
-			f = reflect.Indirect(v).FieldByName(upcaseInitial(col.Name))
+	if b.preferTags {
+
+		mapping := make(map[string]reflect.Value)
+
+		s := indirect.Type()
+
+		for i := 0; i < s.NumField(); i++ {
+			f := s.Field(i)
+			tag := f.Tag.Get("cql")
+			mapping[tag] = indirect.Field(i)
 		}
 
-		if !f.IsValid() {
-			return false
+		for i, col := range cols {
+			f := mapping[col.Name]
+			values[i] = f.Addr().Interface()
 		}
 
-		values[i] = f.Addr().Interface()
+	} else {
+		for i, col := range cols {
+
+			f := indirect.FieldByName(col.Name)
+
+			if !f.IsValid() {
+				f = indirect.FieldByName(upcaseInitial(col.Name))
+			}
+
+			if !f.IsValid() {
+				return false
+			}
+
+			values[i] = f.Addr().Interface()
+		}
 	}
 
 	return b.iter.Scan(values...)

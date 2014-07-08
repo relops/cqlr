@@ -13,6 +13,12 @@ type Tweet struct {
 	Text     string
 }
 
+type TaggedTweet struct {
+	Timeline string     `cql:"timeline"`
+	Id       gocql.UUID `cql:"id"`
+	Text     string     `cql:"text"`
+}
+
 func TestTweetBinding(t *testing.T) {
 
 	cluster := gocql.NewCluster("127.0.0.1")
@@ -36,6 +42,9 @@ func TestTweetBinding(t *testing.T) {
 	}
 
 	var tw Tweet
+
+	// Bind by reflection
+
 	iter := s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
 
 	b := Bind(iter)
@@ -44,6 +53,24 @@ func TestTweetBinding(t *testing.T) {
 	for b.Scan(&tw) {
 		count++
 		assert.Equal(t, "me", tw.Timeline)
+	}
+
+	err = b.Close()
+	assert.Nil(t, err, "Could not close binding")
+	assert.Equal(t, tweets, count)
+
+	// Bind by tag
+
+	var ttw TaggedTweet
+
+	iter = s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
+
+	b = BindTag(iter)
+
+	count = 0
+	for b.Scan(&ttw) {
+		count++
+		assert.Equal(t, "me", ttw.Timeline)
 	}
 
 	err = b.Close()
