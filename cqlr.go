@@ -48,59 +48,66 @@ func (b *Binding) Scan(dest interface{}) bool {
 	values := make([]interface{}, len(cols))
 	indirect := reflect.Indirect(v)
 
+	var mapper func(c gocql.ColumnInfo) (reflect.Value, bool)
+
 	// Right now, this is all experimental to try to tease out the right API
 
 	if b.preferTags {
 
-		mapping := make(map[string]reflect.Value)
+		mapper = func(col gocql.ColumnInfo) (reflect.Value, bool) {
+			mapping := make(map[string]reflect.Value)
 
-		s := indirect.Type()
+			s := indirect.Type()
 
-		for i := 0; i < s.NumField(); i++ {
-			f := s.Field(i)
-			tag := f.Tag.Get("cql")
-			mapping[tag] = indirect.Field(i)
-		}
+			for i := 0; i < s.NumField(); i++ {
+				f := s.Field(i)
+				tag := f.Tag.Get("cql")
+				mapping[tag] = indirect.Field(i)
+			}
 
-		for i, col := range cols {
-			f := mapping[col.Name]
-			values[i] = f.Addr().Interface()
+			f, ok := mapping[col.Name]
+			return f, ok
 		}
 
 	} else if b.preferExplicit {
 
-		for i, col := range cols {
+		mapper = func(col gocql.ColumnInfo) (reflect.Value, bool) {
 			staticField, ok := b.fun(col.Name)
 			if ok {
 				f := indirect.FieldByIndex(staticField.Index)
-				values[i] = f.Addr().Interface()
+				return f, true
 			}
-
+			return reflect.Value{}, false
 		}
 
 	} else if b.preferMap {
 
-		for i, col := range cols {
+		mapper = func(col gocql.ColumnInfo) (reflect.Value, bool) {
+
 			fieldName, ok := b.typeMap[col.Name]
 			if ok {
 				f := indirect.FieldByName(fieldName)
-				values[i] = f.Addr().Interface()
+				return f, true
 			}
+			return reflect.Value{}, false
 		}
 
 	} else {
-		for i, col := range cols {
 
+		mapper = func(col gocql.ColumnInfo) (reflect.Value, bool) {
 			f := indirect.FieldByName(col.Name)
 
 			if !f.IsValid() {
 				f = indirect.FieldByName(upcaseInitial(col.Name))
 			}
 
-			if !f.IsValid() {
-				return false
-			}
+			return f, f.IsValid()
+		}
+	}
 
+	for i, col := range cols {
+		f, ok := mapper(col)
+		if ok {
 			values[i] = f.Addr().Interface()
 		}
 	}
