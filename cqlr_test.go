@@ -26,7 +26,9 @@ func TestTweetBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i := 0; i < 5; i++ {
+	tweets := 5
+
+	for i := 0; i < tweets; i++ {
 		if err := s.Query(`INSERT INTO tweet (timeline, id, text) VALUES (?, ?, ?)`,
 			"me", gocql.TimeUUID(), fmt.Sprintf("hello world %d", i)).Exec(); err != nil {
 			t.Fatal(err)
@@ -38,11 +40,13 @@ func TestTweetBinding(t *testing.T) {
 
 	b := Bind(iter)
 
+	count := 0
 	for b.Scan(&tw) {
-		// Application specific code goes here
-		fmt.Println(tw)
+		count++
+		assert.Equal(t, "me", tw.Timeline)
 	}
 
 	err = b.Close()
 	assert.Nil(t, err, "Could not close binding")
+	assert.Equal(t, tweets, count)
 }
