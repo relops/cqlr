@@ -1,11 +1,14 @@
 package cqlr
 
 import (
+	"crypto/rand"
 	"fmt"
 	"github.com/gocql/gocql"
 	"github.com/stretchr/testify/assert"
 	"reflect"
+	"speter.net/go/exp/math/dec/inf"
 	"testing"
+	"time"
 )
 
 type Tweet struct {
@@ -14,24 +17,9 @@ type Tweet struct {
 	Text     string
 }
 
-type TaggedTweet struct {
-	Timeline string     `cql:"timeline"`
-	Id       gocql.UUID `cql:"id"`
-	Text     string     `cql:"text"`
-}
+func TestReflectionOnly(t *testing.T) {
 
-func TestTweetBinding(t *testing.T) {
-
-	cluster := gocql.NewCluster("127.0.0.1")
-	cluster.Keyspace = "cqlr"
-	s, err := cluster.CreateSession()
-	defer s.Close()
-
-	assert.Nil(t, err, "Could not connect to keyspace")
-
-	if err := s.Query("TRUNCATE tweet").Exec(); err != nil {
-		t.Fatal(err)
-	}
+	s := setup(t, "tweet")
 
 	tweets := 5
 
@@ -42,90 +30,175 @@ func TestTweetBinding(t *testing.T) {
 		}
 	}
 
-	var tw Tweet
-
-	// Bind by reflection
-
 	iter := s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
 
 	b := Bind(iter)
 
 	count := 0
-	tw = Tweet{}
+	var tw Tweet
+
 	for b.Scan(&tw) {
 		count++
 		assert.Equal(t, "me", tw.Timeline)
 	}
 
-	err = b.Close()
+	err := b.Close()
 	assert.Nil(t, err, "Could not close binding")
 	assert.Equal(t, tweets, count)
+}
 
-	// Bind explicitly using the low level API
+func TestTagsOnly(t *testing.T) {
 
-	iter = s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
+	type Reading struct {
+		What    int32     `cql:"id"`
+		When    time.Time `cql:"timestamp"`
+		HowMuch float32   `cql:"temperature"`
+	}
 
-	b = BindFunc(iter, func(s string) (reflect.StructField, bool) {
-		st := reflect.TypeOf((*Tweet)(nil)).Elem()
+	s := setup(t, "sensors")
+
+	measurements := 11
+
+	for i := 0; i < measurements; i++ {
+		if err := s.Query(`INSERT INTO sensors (id, timestamp, temperature) VALUES (?, ?, ?)`,
+			i, time.Now(), float32(1)/3).Exec(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	iter := s.Query(`SELECT id, timestamp, temperature FROM sensors`).Iter()
+
+	b := BindTag(iter)
+
+	count := 0
+	var r Reading
+
+	for b.Scan(&r) {
+		count++
+		assert.True(t, r.When.Before(time.Now()))
+	}
+
+	err := b.Close()
+	assert.Nil(t, err, "Could not close binding")
+	assert.Equal(t, measurements, count)
+}
+
+func TestLowLevelAPIOnly(t *testing.T) {
+
+	type CDR struct {
+		Imsi      string
+		Timestamp time.Time
+		Duration  int64
+		Carrier   string
+		Charge    *inf.Dec
+	}
+
+	s := setup(t, "calls")
+
+	measurements := 43
+
+	start := time.Now()
+
+	for i := 0; i < measurements; i++ {
+		charge := new(inf.Dec)
+		charge.SetString(fmt.Sprintf("1.0%d", i))
+		if err := s.Query(`INSERT INTO calls (imsi, timestamp, duration, carrier, charge) VALUES (?, ?, ?, ?, ?)`,
+			"240080852000132", start.Add(time.Duration(i)*time.Millisecond), i+60, "TMOB", charge).Exec(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	iter := s.Query(`SELECT imsi, timestamp, duration, carrier, charge FROM calls`).Iter()
+
+	b := BindFunc(iter, func(s string) (reflect.StructField, bool) {
+		st := reflect.TypeOf((*CDR)(nil)).Elem()
 		switch s {
-		case "text":
-			return st.FieldByName("Text")
-		case "id":
-			return st.FieldByName("Text")
-		case "timeline":
-			return st.FieldByName("Timeline")
+		case "imsi":
+			return st.FieldByName("Imsi")
+		case "timestamp":
+			return st.FieldByName("Timestamp")
+		case "duration":
+			return st.FieldByName("Duration")
+		case "carrier":
+			return st.FieldByName("Carrier")
+		case "charge":
+			return st.FieldByName("Charge")
 		default:
 			return reflect.StructField{}, false
 		}
 	})
 
-	count = 0
-	tw = Tweet{}
-	for b.Scan(&tw) {
+	count := 0
+	var r CDR
+
+	for b.Scan(&r) {
 		count++
-		assert.Equal(t, "me", tw.Timeline)
+		assert.Equal(t, "TMOB", r.Carrier)
 	}
 
-	err = b.Close()
+	err := b.Close()
 	assert.Nil(t, err, "Could not close binding")
-	assert.Equal(t, tweets, count)
+	assert.Equal(t, measurements, count)
+}
 
-	// Bind explicitly using the high level API
+func TestHighLevelAPIOnly(t *testing.T) {
 
-	iter = s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
+	type Message struct {
+		Identifier gocql.UUID
+		Epoch      int64
+		User       string
+		Payload    []byte
+	}
 
-	b = BindMap(iter, map[string]string{
-		"timeline": "Timeline",
-		"id":       "Id",
-		"text":     "Text",
+	s := setup(t, "queue")
+
+	msgs := 163
+
+	for i := 0; i < msgs; i++ {
+		msg := make([]byte, 64)
+		_, err := rand.Read(msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Query(`INSERT INTO queue (id, unix, usr, msg) VALUES (?, ?, ?, ?)`,
+			gocql.TimeUUID(), time.Now().Unix(), "deamon", msg).Exec(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	iter := s.Query(`SELECT id, unix, usr, msg FROM queue`).Iter()
+
+	b := BindMap(iter, map[string]string{
+		"id":   "Identifier",
+		"unix": "Epoch",
+		"usr":  "User",
+		"msg":  "Payload",
 	})
 
-	count = 0
-	tw = Tweet{}
-	for b.Scan(&tw) {
+	count := 0
+	var m Message
+
+	for b.Scan(&m) {
 		count++
-		assert.Equal(t, "me", tw.Timeline)
+		assert.Equal(t, "deamon", m.User)
 	}
 
-	err = b.Close()
+	err := b.Close()
 	assert.Nil(t, err, "Could not close binding")
-	assert.Equal(t, tweets, count)
+	assert.Equal(t, msgs, count)
 
-	// Bind by tag
+}
 
-	var ttw TaggedTweet
+func setup(t *testing.T, table string) *gocql.Session {
+	cluster := gocql.NewCluster("127.0.0.1")
+	cluster.Keyspace = "cqlr"
+	s, err := cluster.CreateSession()
 
-	iter = s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
+	assert.Nil(t, err, "Could not connect to keyspace")
 
-	b = BindTag(iter)
-
-	count = 0
-	for b.Scan(&ttw) {
-		count++
-		assert.Equal(t, "me", ttw.Timeline)
+	if err := s.Query(fmt.Sprintf("TRUNCATE %s", table)).Exec(); err != nil {
+		t.Fatal(err)
 	}
 
-	err = b.Close()
-	assert.Nil(t, err, "Could not close binding")
-	assert.Equal(t, tweets, count)
+	return s
 }
