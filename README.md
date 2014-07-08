@@ -21,6 +21,10 @@ for b.Scan(&t) {
 }
 ```
 
+## Cassandra Support
+
+Right now cqlr is tested against Cassandra 2.0.9.
+
 ## Motivation
 
 gocql users are looking for ways to automatically bind query results to application defined structs, but this functionality is not available in the core library. In addition, it is possible that the core library does not want to support this feature, because it significantly increases the functional scope of that codebase. So the goal of cqlr is to see if this functionality can be layered on top of the core gocql API in a re-useable way.
