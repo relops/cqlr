@@ -46,15 +46,26 @@ func (b *Binding) Scan(dest interface{}) bool {
 
 	cols := b.iter.Columns()
 	values := make([]interface{}, len(cols))
-	indirect := reflect.Indirect(v)
 
-	var mapper func(c gocql.ColumnInfo) (reflect.Value, bool)
+	for i, col := range cols {
+		f, ok := b.mapper(v)(col)
+		if ok {
+			values[i] = f.Addr().Interface()
+		}
+	}
+
+	return b.iter.Scan(values...)
+}
+
+func (b *Binding) mapper(v reflect.Value) func(col gocql.ColumnInfo) (reflect.Value, bool) {
+
+	indirect := reflect.Indirect(v)
 
 	// Right now, this is all experimental to try to tease out the right API
 
 	if b.preferTags {
 
-		mapper = func(col gocql.ColumnInfo) (reflect.Value, bool) {
+		return func(col gocql.ColumnInfo) (reflect.Value, bool) {
 			mapping := make(map[string]reflect.Value)
 
 			s := indirect.Type()
@@ -71,7 +82,7 @@ func (b *Binding) Scan(dest interface{}) bool {
 
 	} else if b.preferExplicit {
 
-		mapper = func(col gocql.ColumnInfo) (reflect.Value, bool) {
+		return func(col gocql.ColumnInfo) (reflect.Value, bool) {
 			staticField, ok := b.fun(col.Name)
 			if ok {
 				f := indirect.FieldByIndex(staticField.Index)
@@ -82,7 +93,7 @@ func (b *Binding) Scan(dest interface{}) bool {
 
 	} else if b.preferMap {
 
-		mapper = func(col gocql.ColumnInfo) (reflect.Value, bool) {
+		return func(col gocql.ColumnInfo) (reflect.Value, bool) {
 
 			fieldName, ok := b.typeMap[col.Name]
 			if ok {
@@ -94,7 +105,7 @@ func (b *Binding) Scan(dest interface{}) bool {
 
 	} else {
 
-		mapper = func(col gocql.ColumnInfo) (reflect.Value, bool) {
+		return func(col gocql.ColumnInfo) (reflect.Value, bool) {
 			f := indirect.FieldByName(col.Name)
 
 			if !f.IsValid() {
@@ -104,15 +115,6 @@ func (b *Binding) Scan(dest interface{}) bool {
 			return f, f.IsValid()
 		}
 	}
-
-	for i, col := range cols {
-		f, ok := mapper(col)
-		if ok {
-			values[i] = f.Addr().Interface()
-		}
-	}
-
-	return b.iter.Scan(values...)
 }
 
 func upcaseInitial(str string) string {
