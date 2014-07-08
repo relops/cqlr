@@ -1,6 +1,8 @@
 cqlr
 ----
 
+[![Build Status](https://travis-ci.org/relops/cqlr.png?branch=master)](https://travis-ci.org/relops/cqlr)
+
 cqlr extends the [gocql][] runtime API and adds the ability to auto-bind a CQL iterator to a struct:
 
 ```go
