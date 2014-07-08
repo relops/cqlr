@@ -7,9 +7,9 @@ cqlr extends the [gocql][] runtime API and adds the ability to auto-bind a CQL i
 
 ```go
 type Tweet struct {
-	Timeline string
-	Id       gocql.UUID
-	Text     string
+	Timeline string     `cql:"timeline"`
+	Id       gocql.UUID `cql:"id"`
+	Text     string     `cql:"text"`
 }
 
 iter := s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
