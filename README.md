@@ -26,6 +26,7 @@ for b.Scan(&t) {
 Right now, cqlr supports the following mechanisms to auto-bind iterators:
 
 * Application supplied binding function
+* Map of column name to struct field name
 * By struct tags
 * By field names
 
