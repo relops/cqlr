@@ -11,7 +11,9 @@ type Binding struct {
 	iter           *gocql.Iter
 	preferTags     bool
 	preferExplicit bool
+	preferMap      bool
 	fun            func(string) (reflect.StructField, bool)
+	typeMap        map[string]string
 }
 
 func Bind(iter *gocql.Iter) *Binding {
@@ -24,6 +26,10 @@ func BindTag(iter *gocql.Iter) *Binding {
 
 func BindFunc(iter *gocql.Iter, f func(string) (reflect.StructField, bool)) *Binding {
 	return &Binding{iter: iter, fun: f, preferExplicit: true}
+}
+
+func BindMap(iter *gocql.Iter, m map[string]string) *Binding {
+	return &Binding{iter: iter, typeMap: m, preferMap: true}
 }
 
 func (b *Binding) Close() error {
@@ -70,6 +76,16 @@ func (b *Binding) Scan(dest interface{}) bool {
 				values[i] = f.Addr().Interface()
 			}
 
+		}
+
+	} else if b.preferMap {
+
+		for i, col := range cols {
+			fieldName, ok := b.typeMap[col.Name]
+			if ok {
+				f := indirect.FieldByName(fieldName)
+				values[i] = f.Addr().Interface()
+			}
 		}
 
 	} else {

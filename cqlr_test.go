@@ -51,6 +51,7 @@ func TestTweetBinding(t *testing.T) {
 	b := Bind(iter)
 
 	count := 0
+	tw = Tweet{}
 	for b.Scan(&tw) {
 		count++
 		assert.Equal(t, "me", tw.Timeline)
@@ -60,7 +61,7 @@ func TestTweetBinding(t *testing.T) {
 	assert.Nil(t, err, "Could not close binding")
 	assert.Equal(t, tweets, count)
 
-	// Bind explicitly
+	// Bind explicitly using the low level API
 
 	iter = s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
 
@@ -79,6 +80,28 @@ func TestTweetBinding(t *testing.T) {
 	})
 
 	count = 0
+	tw = Tweet{}
+	for b.Scan(&tw) {
+		count++
+		assert.Equal(t, "me", tw.Timeline)
+	}
+
+	err = b.Close()
+	assert.Nil(t, err, "Could not close binding")
+	assert.Equal(t, tweets, count)
+
+	// Bind explicitly using the high level API
+
+	iter = s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
+
+	b = BindMap(iter, map[string]string{
+		"timeline": "Timeline",
+		"id":       "Id",
+		"text":     "Text",
+	})
+
+	count = 0
+	tw = Tweet{}
 	for b.Scan(&tw) {
 		count++
 		assert.Equal(t, "me", tw.Timeline)
