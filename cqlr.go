@@ -7,9 +7,11 @@ import (
 )
 
 type Binding struct {
-	err        error
-	iter       *gocql.Iter
-	preferTags bool
+	err            error
+	iter           *gocql.Iter
+	preferTags     bool
+	preferExplicit bool
+	fun            func(string) string
 }
 
 func Bind(iter *gocql.Iter) *Binding {
@@ -18,6 +20,10 @@ func Bind(iter *gocql.Iter) *Binding {
 
 func BindTag(iter *gocql.Iter) *Binding {
 	return &Binding{iter: iter, preferTags: true}
+}
+
+func BindFunc(iter *gocql.Iter, f func(string) string) *Binding {
+	return &Binding{iter: iter, fun: f, preferExplicit: true}
 }
 
 func (b *Binding) Close() error {
@@ -52,6 +58,14 @@ func (b *Binding) Scan(dest interface{}) bool {
 
 		for i, col := range cols {
 			f := mapping[col.Name]
+			values[i] = f.Addr().Interface()
+		}
+
+	} else if b.preferExplicit {
+
+		for i, col := range cols {
+			fieldName := b.fun(col.Name)
+			f := indirect.FieldByName(fieldName)
 			values[i] = f.Addr().Interface()
 		}
 

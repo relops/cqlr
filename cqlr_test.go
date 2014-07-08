@@ -59,6 +59,33 @@ func TestTweetBinding(t *testing.T) {
 	assert.Nil(t, err, "Could not close binding")
 	assert.Equal(t, tweets, count)
 
+	// Bind explicitly
+
+	iter = s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
+
+	b = BindFunc(iter, func(s string) string {
+		switch s {
+		case "text":
+			return "Text"
+		case "id":
+			return "Id"
+		case "timeline":
+			return "Timeline"
+		default:
+			return ""
+		}
+	})
+
+	count = 0
+	for b.Scan(&tw) {
+		count++
+		assert.Equal(t, "me", tw.Timeline)
+	}
+
+	err = b.Close()
+	assert.Nil(t, err, "Could not close binding")
+	assert.Equal(t, tweets, count)
+
 	// Bind by tag
 
 	var ttw TaggedTweet
