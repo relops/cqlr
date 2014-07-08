@@ -11,7 +11,7 @@ type Binding struct {
 	iter           *gocql.Iter
 	preferTags     bool
 	preferExplicit bool
-	fun            func(string) string
+	fun            func(string) (reflect.StructField, bool)
 }
 
 func Bind(iter *gocql.Iter) *Binding {
@@ -22,7 +22,7 @@ func BindTag(iter *gocql.Iter) *Binding {
 	return &Binding{iter: iter, preferTags: true}
 }
 
-func BindFunc(iter *gocql.Iter, f func(string) string) *Binding {
+func BindFunc(iter *gocql.Iter, f func(string) (reflect.StructField, bool)) *Binding {
 	return &Binding{iter: iter, fun: f, preferExplicit: true}
 }
 
@@ -64,9 +64,12 @@ func (b *Binding) Scan(dest interface{}) bool {
 	} else if b.preferExplicit {
 
 		for i, col := range cols {
-			fieldName := b.fun(col.Name)
-			f := indirect.FieldByName(fieldName)
-			values[i] = f.Addr().Interface()
+			staticField, ok := b.fun(col.Name)
+			if ok {
+				f := indirect.FieldByIndex(staticField.Index)
+				values[i] = f.Addr().Interface()
+			}
+
 		}
 
 	} else {

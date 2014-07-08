@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gocql/gocql"
 	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 )
 
@@ -63,16 +64,17 @@ func TestTweetBinding(t *testing.T) {
 
 	iter = s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
 
-	b = BindFunc(iter, func(s string) string {
+	b = BindFunc(iter, func(s string) (reflect.StructField, bool) {
+		st := reflect.TypeOf((*Tweet)(nil)).Elem()
 		switch s {
 		case "text":
-			return "Text"
+			return st.FieldByName("Text")
 		case "id":
-			return "Id"
+			return st.FieldByName("Text")
 		case "timeline":
-			return "Timeline"
+			return st.FieldByName("Timeline")
 		default:
-			return ""
+			return reflect.StructField{}, false
 		}
 	})
 
