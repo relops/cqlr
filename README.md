@@ -21,6 +21,14 @@ for b.Scan(&t) {
 }
 ```
 
+## Supported Binding Mechanisms
+
+Right now, cqlr supports the following mechanisms to auto-bind iterators:
+
+* Application supplied binding function
+* By struct tags
+* By field names
+
 ## Cassandra Support
 
 Right now cqlr is tested against Cassandra 2.0.9.
