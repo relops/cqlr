@@ -68,19 +68,22 @@ func TestTagsOnly(t *testing.T) {
 
 	iter := s.Query(`SELECT id, timestamp, temperature FROM sensors`).Iter()
 
-	b := BindTag(iter)
+	b := Bind(iter)
 
 	count := 0
+	total := int32(0)
 	var r Reading
 
 	for b.Scan(&r) {
 		count++
+		total += r.What
 		assert.True(t, r.When.Before(time.Now()))
 	}
 
 	err := b.Close()
 	assert.Nil(t, err, "Could not close binding")
 	assert.Equal(t, measurements, count)
+	assert.Equal(t, measurements*(measurements-1)/2, total) // http://en.wikipedia.org/wiki/Triangular_number
 }
 
 func TestLowLevelAPIOnly(t *testing.T) {
@@ -110,9 +113,9 @@ func TestLowLevelAPIOnly(t *testing.T) {
 
 	iter := s.Query(`SELECT imsi, timestamp, duration, carrier, charge FROM calls`).Iter()
 
-	b := BindFunc(iter, func(s string) (reflect.StructField, bool) {
+	b := Bind(iter).Use(func(c gocql.ColumnInfo) (reflect.StructField, bool) {
 		st := reflect.TypeOf((*CDR)(nil)).Elem()
-		switch s {
+		switch c.Name {
 		case "imsi":
 			return st.FieldByName("Imsi")
 		case "timestamp":
@@ -168,7 +171,7 @@ func TestHighLevelAPIOnly(t *testing.T) {
 
 	iter := s.Query(`SELECT id, unix, usr, msg FROM queue`).Iter()
 
-	b := BindMap(iter, map[string]string{
+	b := Bind(iter).Map(map[string]string{
 		"id":   "Identifier",
 		"unix": "Epoch",
 		"usr":  "User",

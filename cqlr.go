@@ -7,29 +7,26 @@ import (
 )
 
 type Binding struct {
-	err            error
-	iter           *gocql.Iter
-	preferTags     bool
-	preferExplicit bool
-	preferMap      bool
-	fun            func(string) (reflect.StructField, bool)
-	typeMap        map[string]string
+	err        error
+	iter       *gocql.Iter
+	isCompiled bool
+	strategy   map[string]reflect.Value
+	fun        func(gocql.ColumnInfo) (reflect.StructField, bool)
+	typeMap    map[string]string
 }
 
 func Bind(iter *gocql.Iter) *Binding {
-	return &Binding{iter: iter}
+	return &Binding{iter: iter, strategy: make(map[string]reflect.Value)}
 }
 
-func BindTag(iter *gocql.Iter) *Binding {
-	return &Binding{iter: iter, preferTags: true}
+func (b *Binding) Use(f func(gocql.ColumnInfo) (reflect.StructField, bool)) *Binding {
+	b.fun = f
+	return b
 }
 
-func BindFunc(iter *gocql.Iter, f func(string) (reflect.StructField, bool)) *Binding {
-	return &Binding{iter: iter, fun: f, preferExplicit: true}
-}
-
-func BindMap(iter *gocql.Iter, m map[string]string) *Binding {
-	return &Binding{iter: iter, typeMap: m, preferMap: true}
+func (b *Binding) Map(m map[string]string) *Binding {
+	b.typeMap = m
+	return b
 }
 
 func (b *Binding) Close() error {
@@ -45,10 +42,15 @@ func (b *Binding) Scan(dest interface{}) bool {
 	}
 
 	cols := b.iter.Columns()
+	if !b.isCompiled {
+		b.compile(v, cols)
+	}
+
 	values := make([]interface{}, len(cols))
 
 	for i, col := range cols {
-		f, ok := b.mapper(v)(col)
+		f, ok := b.strategy[col.Name]
+
 		if ok {
 			values[i] = f.Addr().Interface()
 		}
@@ -57,64 +59,54 @@ func (b *Binding) Scan(dest interface{}) bool {
 	return b.iter.Scan(values...)
 }
 
-func (b *Binding) mapper(v reflect.Value) func(col gocql.ColumnInfo) (reflect.Value, bool) {
+func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) {
 
 	indirect := reflect.Indirect(v)
 
-	// Right now, this is all experimental to try to tease out the right API
+	s := indirect.Type()
 
-	if b.preferTags {
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		tag := f.Tag.Get("cql")
+		b.strategy[tag] = indirect.Field(i)
+	}
 
-		return func(col gocql.ColumnInfo) (reflect.Value, bool) {
-			mapping := make(map[string]reflect.Value)
-
-			s := indirect.Type()
-
-			for i := 0; i < s.NumField(); i++ {
-				f := s.Field(i)
-				tag := f.Tag.Get("cql")
-				mapping[tag] = indirect.Field(i)
-			}
-
-			f, ok := mapping[col.Name]
-			return f, ok
-		}
-
-	} else if b.preferExplicit {
-
-		return func(col gocql.ColumnInfo) (reflect.Value, bool) {
-			staticField, ok := b.fun(col.Name)
+	if b.fun != nil {
+		for _, col := range cols {
+			staticField, ok := b.fun(col)
 			if ok {
-				f := indirect.FieldByIndex(staticField.Index)
-				return f, true
+				b.strategy[col.Name] = indirect.FieldByIndex(staticField.Index)
 			}
-			return reflect.Value{}, false
 		}
+	}
 
-	} else if b.preferMap {
-
-		return func(col gocql.ColumnInfo) (reflect.Value, bool) {
-
+	if b.typeMap != nil && len(b.typeMap) > 0 {
+		for _, col := range cols {
 			fieldName, ok := b.typeMap[col.Name]
 			if ok {
 				f := indirect.FieldByName(fieldName)
-				return f, true
+				b.strategy[col.Name] = f
 			}
-			return reflect.Value{}, false
 		}
+	}
 
-	} else {
+	for _, col := range cols {
 
-		return func(col gocql.ColumnInfo) (reflect.Value, bool) {
+		_, ok := b.strategy[col.Name]
+		if !ok {
+
 			f := indirect.FieldByName(col.Name)
-
 			if !f.IsValid() {
 				f = indirect.FieldByName(upcaseInitial(col.Name))
 			}
 
-			return f, f.IsValid()
+			if f.IsValid() {
+				b.strategy[col.Name] = f
+			}
 		}
 	}
+
+	b.isCompiled = true
 }
 
 func upcaseInitial(str string) string {
