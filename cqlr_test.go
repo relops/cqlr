@@ -192,6 +192,60 @@ func TestHighLevelAPIOnly(t *testing.T) {
 
 }
 
+func TestMixedBinding(t *testing.T) {
+
+	type WaterLevel struct {
+		Country       string // Bind by name
+		When          int32  `cql:"year"` // Bind by tag
+		Level         int64  // Bind using a map
+		Precipitation int32  // Bind with a strategy
+	}
+
+	s := setup(t, "levels")
+
+	entries := 79
+	basePrecipitation := int32(100)
+	baseLevel := int64(1000)
+	startYear := int32(1850)
+
+	for i := 0; i < entries; i++ {
+		if err := s.Query(`INSERT INTO levels (country, year, height, rain) VALUES (?, ?, ?, ?)`,
+			"Antarctica", 1850+i, 11*int64(i)+baseLevel, basePrecipitation+int32(i)*3).Exec(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	iter := s.Query(`SELECT country, year, height, rain FROM levels`).Iter()
+
+	b := Bind(iter).Map(map[string]string{
+		"height": "Level",
+	})
+
+	b.Use(func(c gocql.ColumnInfo) (reflect.StructField, bool) {
+		if c.Name == "rain" {
+			st := reflect.TypeOf((*WaterLevel)(nil)).Elem()
+			return st.FieldByName("Precipitation")
+		} else {
+			return reflect.StructField{}, false
+		}
+	})
+
+	count := 0
+	var w WaterLevel
+
+	for b.Scan(&w) {
+		count++
+		assert.Equal(t, "Antarctica", w.Country)
+		assert.True(t, w.Level > (baseLevel-1))
+		assert.True(t, w.When > (startYear-1))
+		assert.True(t, w.Precipitation > (basePrecipitation-1))
+	}
+
+	err := b.Close()
+	assert.Nil(t, err, "Could not close binding")
+	assert.Equal(t, entries, count)
+}
+
 func setup(t *testing.T, table string) *gocql.Session {
 	cluster := gocql.NewCluster("127.0.0.1")
 	cluster.Keyspace = "cqlr"

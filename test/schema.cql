@@ -32,3 +32,12 @@ CREATE TABLE queue
     msg blob,    
     PRIMARY KEY (id)
 );
+
+CREATE TABLE levels
+(    
+    country text,
+    year int,
+    height bigint,
+    rain int,
+    PRIMARY KEY (country, year)
+);
