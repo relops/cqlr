@@ -11,13 +11,13 @@ import (
 	"time"
 )
 
-type Tweet struct {
-	Timeline string
-	Id       gocql.UUID
-	Text     string
-}
-
 func TestReflectionOnly(t *testing.T) {
+
+	type Tweet struct {
+		Timeline string
+		Id       gocql.UUID
+		Text     string
+	}
 
 	s := setup(t, "tweet")
 
