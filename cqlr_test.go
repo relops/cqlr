@@ -246,6 +246,88 @@ func TestMixedBinding(t *testing.T) {
 	assert.Equal(t, entries, count)
 }
 
+func TestIgnoreUnknownFields(t *testing.T) {
+
+	type Simple struct {
+		Id int
+	}
+
+	s := setup(t, "partial")
+
+	if err := s.Query(`INSERT INTO partial (id, value) VALUES (?, ?)`, 11, "foo").Exec(); err != nil {
+		t.Fatal(err)
+	}
+
+	iter := s.Query(`SELECT id, value FROM partial`).Iter()
+
+	b := Bind(iter)
+
+	var si Simple
+
+	for b.Scan(&si) {
+		assert.Equal(t, 11, si.Id)
+	}
+
+	err := b.Close()
+	assert.Nil(t, err, "Could not close binding")
+}
+
+func TestStrictMapping(t *testing.T) {
+
+	type Simple struct {
+		Id int
+	}
+
+	s := setup(t, "partial")
+
+	if err := s.Query(`INSERT INTO partial (id, value) VALUES (?, ?)`, 11, "foo").Exec(); err != nil {
+		t.Fatal(err)
+	}
+
+	iter := s.Query(`SELECT id, value FROM partial`).Iter()
+
+	b := Bind(iter).Strict()
+
+	var si Simple
+
+	for b.Scan(&si) {
+		assert.Equal(t, 11, si.Id)
+	}
+
+	err := b.Close()
+	assert.Equal(t, err, ErrMissingStrategy)
+}
+
+func TestIgnoreUnknownColumns(t *testing.T) {
+
+	type Complex struct {
+		Id        int
+		Value     string
+		Timestamp time.Time
+	}
+
+	s := setup(t, "partial")
+
+	if err := s.Query(`INSERT INTO partial (id, value) VALUES (?, ?)`, 122, "bar").Exec(); err != nil {
+		t.Fatal(err)
+	}
+
+	iter := s.Query(`SELECT id, value FROM partial`).Iter()
+
+	b := Bind(iter)
+
+	var c Complex
+
+	for b.Scan(&c) {
+		assert.Equal(t, 122, c.Id)
+		assert.Equal(t, "bar", c.Value)
+		assert.True(t, time.Time.IsZero(c.Timestamp))
+	}
+
+	err := b.Close()
+	assert.Nil(t, err, "Could not close binding")
+}
+
 func setup(t *testing.T, table string) *gocql.Session {
 	cluster := gocql.NewCluster("127.0.0.1")
 	cluster.Keyspace = "cqlr"

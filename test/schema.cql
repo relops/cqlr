@@ -41,3 +41,10 @@ CREATE TABLE levels
     rain int,
     PRIMARY KEY (country, year)
 );
+
+CREATE TABLE partial
+(    
+    id int,
+    value ascii,    
+    PRIMARY KEY (id)
+);

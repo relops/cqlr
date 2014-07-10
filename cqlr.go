@@ -1,6 +1,7 @@
 package cqlr
 
 import (
+	"errors"
 	"github.com/gocql/gocql"
 	"reflect"
 	"unicode"
@@ -10,6 +11,7 @@ type Binding struct {
 	err        error
 	iter       *gocql.Iter
 	isCompiled bool
+	strict     bool
 	strategy   map[string]reflect.Value
 	fun        func(gocql.ColumnInfo) (reflect.StructField, bool)
 	typeMap    map[string]string
@@ -29,6 +31,11 @@ func (b *Binding) Map(m map[string]string) *Binding {
 	return b
 }
 
+func (b *Binding) Strict() *Binding {
+	b.strict = true
+	return b
+}
+
 func (b *Binding) Close() error {
 	return b.err
 }
@@ -43,7 +50,10 @@ func (b *Binding) Scan(dest interface{}) bool {
 
 	cols := b.iter.Columns()
 	if !b.isCompiled {
-		b.compile(v, cols)
+		if err := b.compile(v, cols); err != nil {
+			b.err = err
+			return false
+		}
 	}
 
 	values := make([]interface{}, len(cols))
@@ -59,7 +69,7 @@ func (b *Binding) Scan(dest interface{}) bool {
 	return b.iter.Scan(values...)
 }
 
-func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) {
+func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 
 	indirect := reflect.Indirect(v)
 
@@ -68,7 +78,9 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) {
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 		tag := f.Tag.Get("cql")
-		b.strategy[tag] = indirect.Field(i)
+		if tag != "" {
+			b.strategy[tag] = indirect.Field(i)
+		}
 	}
 
 	if b.fun != nil {
@@ -106,7 +118,15 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) {
 		}
 	}
 
+	if b.strict {
+		if len(b.strategy) != len(cols) {
+			return ErrMissingStrategy
+		}
+	}
+
 	b.isCompiled = true
+
+	return nil
 }
 
 func upcaseInitial(str string) string {
@@ -115,3 +135,7 @@ func upcaseInitial(str string) string {
 	}
 	return ""
 }
+
+var (
+	ErrMissingStrategy = errors.New("insufficient column mapping")
+)
