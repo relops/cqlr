@@ -32,42 +32,6 @@ func (b *Binding) Exec(s *gocql.Session) error {
 	return s.Bind(b.stmt, b.bind).Exec()
 }
 
-func (b *Binding) bind(q *gocql.QueryInfo) ([]interface{}, error) {
-	values := make([]interface{}, len(q.Args))
-	value := reflect.ValueOf(b.arg)
-
-	if !b.isCompiled {
-		if err := b.compile(value, q.Args); err != nil {
-			return nil, err
-		}
-	}
-
-	for i, col := range q.Args {
-		f, ok := b.strategy[col.Name]
-
-		if b.strict && !ok {
-			return nil, ErrMissingStrategy
-		}
-
-		if ok {
-			if f.CanAddr() {
-				values[i] = f.Addr().Interface()
-			} else if f.CanInterface() {
-				values[i] = f.Interface()
-			}
-		}
-
-		// TODO Going forwards, passing a nil value to the gocql driver
-		// might be a valid approach, but for now, we're going to try
-		// avoid confusing people with reflect panics
-		if values[i] == nil {
-			return nil, ErrMissingStrategy
-		}
-	}
-
-	return values, nil
-}
-
 func (b *Binding) Use(f func(gocql.ColumnInfo) (reflect.StructField, bool)) *Binding {
 	b.fun = f
 	return b
@@ -118,6 +82,42 @@ func (b *Binding) Scan(dest interface{}) bool {
 	}
 
 	return b.iter.Scan(values...)
+}
+
+func (b *Binding) bind(q *gocql.QueryInfo) ([]interface{}, error) {
+	values := make([]interface{}, len(q.Args))
+	value := reflect.ValueOf(b.arg)
+
+	if !b.isCompiled {
+		if err := b.compile(value, q.Args); err != nil {
+			return nil, err
+		}
+	}
+
+	for i, col := range q.Args {
+		f, ok := b.strategy[col.Name]
+
+		if b.strict && !ok {
+			return nil, ErrMissingStrategy
+		}
+
+		if ok {
+			if f.CanAddr() {
+				values[i] = f.Addr().Interface()
+			} else if f.CanInterface() {
+				values[i] = f.Interface()
+			}
+		}
+
+		// TODO Going forwards, passing a nil value to the gocql driver
+		// might be a valid approach, but for now, we're going to try
+		// avoid confusing people with reflect panics
+		if values[i] == nil {
+			return nil, ErrMissingStrategy
+		}
+	}
+
+	return values, nil
 }
 
 func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
