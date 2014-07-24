@@ -24,15 +24,19 @@ func TestReflectionOnly(t *testing.T) {
 	tweets := 5
 
 	for i := 0; i < tweets; i++ {
-		if err := s.Query(`INSERT INTO tweet (timeline, id, text) VALUES (?, ?, ?)`,
-			"me", gocql.TimeUUID(), fmt.Sprintf("hello world %d", i)).Exec(); err != nil {
+		tw := Tweet{
+			Timeline: "me",
+			Id:       gocql.TimeUUID(),
+			Text:     fmt.Sprintf("hello world %d", i),
+		}
+
+		if err := Bind(`INSERT INTO tweet (timeline, id, text) VALUES (?, ?, ?)`, tw).Exec(s); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	q := s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me")
-
-	b := Bind(q)
+	b := BindQuery(q)
 
 	count := 0
 	var tw Tweet
@@ -68,7 +72,7 @@ func TestTagsOnly(t *testing.T) {
 
 	q := s.Query(`SELECT id, timestamp, temperature FROM sensors`)
 
-	b := Bind(q)
+	b := BindQuery(q)
 
 	count := 0
 	total := int32(0)
@@ -113,7 +117,7 @@ func TestLowLevelAPIOnly(t *testing.T) {
 
 	q := s.Query(`SELECT imsi, timestamp, duration, carrier, charge FROM calls`)
 
-	b := Bind(q).Use(func(c gocql.ColumnInfo) (reflect.StructField, bool) {
+	b := BindQuery(q).Use(func(c gocql.ColumnInfo) (reflect.StructField, bool) {
 		st := reflect.TypeOf((*CDR)(nil)).Elem()
 		switch c.Name {
 		case "imsi":
@@ -171,7 +175,7 @@ func TestHighLevelAPIOnly(t *testing.T) {
 
 	q := s.Query(`SELECT id, unix, usr, msg FROM queue`)
 
-	b := Bind(q).Map(map[string]string{
+	b := BindQuery(q).Map(map[string]string{
 		"id":   "Identifier",
 		"unix": "Epoch",
 		"usr":  "User",
@@ -217,7 +221,7 @@ func TestMixedBinding(t *testing.T) {
 
 	q := s.Query(`SELECT country, year, height, rain FROM levels`)
 
-	b := Bind(q).Map(map[string]string{
+	b := BindQuery(q).Map(map[string]string{
 		"height": "Level",
 	})
 
@@ -260,7 +264,7 @@ func TestIgnoreUnknownFields(t *testing.T) {
 
 	q := s.Query(`SELECT id, value FROM partial`)
 
-	b := Bind(q)
+	b := BindQuery(q)
 
 	var si Simple
 
@@ -286,7 +290,7 @@ func TestStrictMapping(t *testing.T) {
 
 	q := s.Query(`SELECT id, value FROM partial`)
 
-	b := Bind(q).Strict()
+	b := BindQuery(q).Strict()
 
 	var si Simple
 
@@ -314,7 +318,7 @@ func TestIgnoreUnknownColumns(t *testing.T) {
 
 	q := s.Query(`SELECT id, value FROM partial`)
 
-	b := Bind(q)
+	b := BindQuery(q)
 
 	var c Complex
 

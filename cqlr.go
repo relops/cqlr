@@ -11,6 +11,8 @@ type Binding struct {
 	err        error
 	qry        *gocql.Query
 	iter       *gocql.Iter
+	stmt       string
+	arg        interface{}
 	isCompiled bool
 	strict     bool
 	strategy   map[string]reflect.Value
@@ -18,8 +20,30 @@ type Binding struct {
 	typeMap    map[string]string
 }
 
-func Bind(q *gocql.Query) *Binding {
+func BindQuery(q *gocql.Query) *Binding {
 	return &Binding{qry: q, strategy: make(map[string]reflect.Value)}
+}
+
+func Bind(s string, v interface{}) *Binding {
+	return &Binding{stmt: s, arg: v, strategy: make(map[string]reflect.Value)}
+}
+
+func (b *Binding) Exec(s *gocql.Session) error {
+	return s.Bind(b.stmt, b.bind).Exec()
+}
+
+func (b *Binding) bind(q *gocql.QueryInfo) ([]interface{}, error) {
+	values := make([]interface{}, len(q.Args))
+
+	value := reflect.ValueOf(b.arg)
+
+	for i, info := range q.Args {
+		fieldName := upcaseInitial(info.Name)
+		field := reflect.Indirect(value).FieldByName(fieldName)
+		values[i] = field.Interface()
+	}
+
+	return values, nil
 }
 
 func (b *Binding) Use(f func(gocql.ColumnInfo) (reflect.StructField, bool)) *Binding {
