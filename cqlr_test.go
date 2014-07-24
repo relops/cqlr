@@ -230,6 +230,19 @@ func TestMixedBinding(t *testing.T) {
 		Precipitation int32  // Bind with a strategy
 	}
 
+	strat1 := map[string]string{
+		"height": "Level",
+	}
+
+	strat2 := func(c gocql.ColumnInfo) (reflect.StructField, bool) {
+		if c.Name == "rain" {
+			st := reflect.TypeOf((*WaterLevel)(nil)).Elem()
+			return st.FieldByName("Precipitation")
+		} else {
+			return reflect.StructField{}, false
+		}
+	}
+
 	s := setup(t, "levels")
 
 	entries := 79
@@ -238,26 +251,25 @@ func TestMixedBinding(t *testing.T) {
 	startYear := int32(1850)
 
 	for i := 0; i < entries; i++ {
-		if err := s.Query(`INSERT INTO levels (country, year, height, rain) VALUES (?, ?, ?, ?)`,
-			"Antarctica", 1850+i, 11*int64(i)+baseLevel, basePrecipitation+int32(i)*3).Exec(); err != nil {
+
+		l := WaterLevel{
+			Country:       "Antarctica",
+			When:          1850 + int32(i),
+			Level:         11*int64(i) + baseLevel,
+			Precipitation: basePrecipitation + int32(i)*3,
+		}
+
+		if err := Bind(`INSERT INTO levels (country, year, height, rain) VALUES (?, ?, ?, ?)`, l).Map(strat1).Use(strat2).Exec(s); err != nil {
 			t.Fatal(err)
 		}
+
 	}
 
 	q := s.Query(`SELECT country, year, height, rain FROM levels`)
 
-	b := BindQuery(q).Map(map[string]string{
-		"height": "Level",
-	})
+	b := BindQuery(q).Map(strat1)
 
-	b.Use(func(c gocql.ColumnInfo) (reflect.StructField, bool) {
-		if c.Name == "rain" {
-			st := reflect.TypeOf((*WaterLevel)(nil)).Elem()
-			return st.FieldByName("Precipitation")
-		} else {
-			return reflect.StructField{}, false
-		}
-	})
+	b.Use(strat2)
 
 	count := 0
 	var w WaterLevel
