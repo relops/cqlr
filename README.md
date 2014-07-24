@@ -53,7 +53,7 @@ if err := b.Exec(s); err != nil {
 
 ## Feature Roadmap
 
-* Support for all
+* Support for all CQL operations
 * Batching
 * Re-binding new struct instances to existing binding instances
 
