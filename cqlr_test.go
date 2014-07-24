@@ -30,9 +30,9 @@ func TestReflectionOnly(t *testing.T) {
 		}
 	}
 
-	iter := s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
+	q := s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me")
 
-	b := Bind(iter)
+	b := Bind(q)
 
 	count := 0
 	var tw Tweet
@@ -66,9 +66,9 @@ func TestTagsOnly(t *testing.T) {
 		}
 	}
 
-	iter := s.Query(`SELECT id, timestamp, temperature FROM sensors`).Iter()
+	q := s.Query(`SELECT id, timestamp, temperature FROM sensors`)
 
-	b := Bind(iter)
+	b := Bind(q)
 
 	count := 0
 	total := int32(0)
@@ -111,9 +111,9 @@ func TestLowLevelAPIOnly(t *testing.T) {
 		}
 	}
 
-	iter := s.Query(`SELECT imsi, timestamp, duration, carrier, charge FROM calls`).Iter()
+	q := s.Query(`SELECT imsi, timestamp, duration, carrier, charge FROM calls`)
 
-	b := Bind(iter).Use(func(c gocql.ColumnInfo) (reflect.StructField, bool) {
+	b := Bind(q).Use(func(c gocql.ColumnInfo) (reflect.StructField, bool) {
 		st := reflect.TypeOf((*CDR)(nil)).Elem()
 		switch c.Name {
 		case "imsi":
@@ -169,9 +169,9 @@ func TestHighLevelAPIOnly(t *testing.T) {
 		}
 	}
 
-	iter := s.Query(`SELECT id, unix, usr, msg FROM queue`).Iter()
+	q := s.Query(`SELECT id, unix, usr, msg FROM queue`)
 
-	b := Bind(iter).Map(map[string]string{
+	b := Bind(q).Map(map[string]string{
 		"id":   "Identifier",
 		"unix": "Epoch",
 		"usr":  "User",
@@ -215,9 +215,9 @@ func TestMixedBinding(t *testing.T) {
 		}
 	}
 
-	iter := s.Query(`SELECT country, year, height, rain FROM levels`).Iter()
+	q := s.Query(`SELECT country, year, height, rain FROM levels`)
 
-	b := Bind(iter).Map(map[string]string{
+	b := Bind(q).Map(map[string]string{
 		"height": "Level",
 	})
 
@@ -258,9 +258,9 @@ func TestIgnoreUnknownFields(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	iter := s.Query(`SELECT id, value FROM partial`).Iter()
+	q := s.Query(`SELECT id, value FROM partial`)
 
-	b := Bind(iter)
+	b := Bind(q)
 
 	var si Simple
 
@@ -284,9 +284,9 @@ func TestStrictMapping(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	iter := s.Query(`SELECT id, value FROM partial`).Iter()
+	q := s.Query(`SELECT id, value FROM partial`)
 
-	b := Bind(iter).Strict()
+	b := Bind(q).Strict()
 
 	var si Simple
 
@@ -312,9 +312,9 @@ func TestIgnoreUnknownColumns(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	iter := s.Query(`SELECT id, value FROM partial`).Iter()
+	q := s.Query(`SELECT id, value FROM partial`)
 
-	b := Bind(iter)
+	b := Bind(q)
 
 	var c Complex
 

@@ -9,6 +9,7 @@ import (
 
 type Binding struct {
 	err        error
+	qry        *gocql.Query
 	iter       *gocql.Iter
 	isCompiled bool
 	strict     bool
@@ -17,8 +18,8 @@ type Binding struct {
 	typeMap    map[string]string
 }
 
-func Bind(iter *gocql.Iter) *Binding {
-	return &Binding{iter: iter, strategy: make(map[string]reflect.Value)}
+func Bind(q *gocql.Query) *Binding {
+	return &Binding{qry: q, strategy: make(map[string]reflect.Value)}
 }
 
 func (b *Binding) Use(f func(gocql.ColumnInfo) (reflect.StructField, bool)) *Binding {
@@ -46,6 +47,10 @@ func (b *Binding) Scan(dest interface{}) bool {
 
 	if v.Kind() != reflect.Ptr || v.IsNil() {
 		return false
+	}
+
+	if b.iter == nil {
+		b.iter = b.qry.Iter()
 	}
 
 	cols := b.iter.Columns()
