@@ -102,36 +102,10 @@ func TestLowLevelAPIOnly(t *testing.T) {
 		Timestamp time.Time
 		Duration  int64
 		Carrier   string
-		Charge    *inf.Dec
+		Cost      *inf.Dec
 	}
 
-	s := setup(t, "calls")
-
-	measurements := 43
-
-	start := time.Now()
-
-	for i := 0; i < measurements; i++ {
-
-		charge := new(inf.Dec)
-		charge.SetString(fmt.Sprintf("1.0%d", i))
-
-		cdr := CDR{
-			Imsi:      "240080852000132",
-			Timestamp: start.Add(time.Duration(i) * time.Millisecond),
-			Duration:  int64(i) + 60,
-			Carrier:   "TMOB",
-			Charge:    charge,
-		}
-
-		if err := Bind(`INSERT INTO calls (imsi, timestamp, duration, carrier, charge) VALUES (?, ?, ?, ?, ?)`, cdr).Exec(s); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	q := s.Query(`SELECT imsi, timestamp, duration, carrier, charge FROM calls`)
-
-	b := BindQuery(q).Use(func(c gocql.ColumnInfo) (reflect.StructField, bool) {
+	strat := func(c gocql.ColumnInfo) (reflect.StructField, bool) {
 		st := reflect.TypeOf((*CDR)(nil)).Elem()
 		switch c.Name {
 		case "imsi":
@@ -143,11 +117,39 @@ func TestLowLevelAPIOnly(t *testing.T) {
 		case "carrier":
 			return st.FieldByName("Carrier")
 		case "charge":
-			return st.FieldByName("Charge")
+			return st.FieldByName("Cost")
 		default:
 			return reflect.StructField{}, false
 		}
-	})
+	}
+
+	s := setup(t, "calls")
+
+	measurements := 43
+
+	start := time.Now()
+
+	for i := 0; i < measurements; i++ {
+
+		cost := new(inf.Dec)
+		cost.SetString(fmt.Sprintf("1.0%d", i))
+
+		cdr := CDR{
+			Imsi:      "240080852000132",
+			Timestamp: start.Add(time.Duration(i) * time.Millisecond),
+			Duration:  int64(i) + 60,
+			Carrier:   "TMOB",
+			Cost:      cost,
+		}
+
+		if err := Bind(`INSERT INTO calls (imsi, timestamp, duration, carrier, charge) VALUES (?, ?, ?, ?, ?)`, cdr).Use(strat).Exec(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	q := s.Query(`SELECT imsi, timestamp, duration, carrier, charge FROM calls`)
+
+	b := BindQuery(q).Use(strat)
 
 	count := 0
 	var r CDR
@@ -171,7 +173,7 @@ func TestHighLevelAPIOnly(t *testing.T) {
 		Payload    []byte
 	}
 
-	strategy := map[string]string{
+	strat := map[string]string{
 		"id":   "Identifier",
 		"unix": "Epoch",
 		"usr":  "User",
@@ -196,14 +198,14 @@ func TestHighLevelAPIOnly(t *testing.T) {
 			Payload:    msg,
 		}
 
-		if err := Bind(`INSERT INTO queue (id, unix, usr, msg) VALUES (?, ?, ?, ?)`, m).Map(strategy).Exec(s); err != nil {
+		if err := Bind(`INSERT INTO queue (id, unix, usr, msg) VALUES (?, ?, ?, ?)`, m).Map(strat).Exec(s); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	q := s.Query(`SELECT id, unix, usr, msg FROM queue`)
 
-	b := BindQuery(q).Map(strategy)
+	b := BindQuery(q).Map(strat)
 
 	count := 0
 	var m Message
