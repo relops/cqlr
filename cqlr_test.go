@@ -112,10 +112,19 @@ func TestLowLevelAPIOnly(t *testing.T) {
 	start := time.Now()
 
 	for i := 0; i < measurements; i++ {
+
 		charge := new(inf.Dec)
 		charge.SetString(fmt.Sprintf("1.0%d", i))
-		if err := s.Query(`INSERT INTO calls (imsi, timestamp, duration, carrier, charge) VALUES (?, ?, ?, ?, ?)`,
-			"240080852000132", start.Add(time.Duration(i)*time.Millisecond), i+60, "TMOB", charge).Exec(); err != nil {
+
+		cdr := CDR{
+			Imsi:      "240080852000132",
+			Timestamp: start.Add(time.Duration(i) * time.Millisecond),
+			Duration:  int64(i) + 60,
+			Carrier:   "TMOB",
+			Charge:    charge,
+		}
+
+		if err := Bind(`INSERT INTO calls (imsi, timestamp, duration, carrier, charge) VALUES (?, ?, ?, ?, ?)`, cdr).Exec(s); err != nil {
 			t.Fatal(err)
 		}
 	}
