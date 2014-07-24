@@ -45,12 +45,23 @@ func (b *Binding) bind(q *gocql.QueryInfo) ([]interface{}, error) {
 	for i, col := range q.Args {
 		f, ok := b.strategy[col.Name]
 
+		if b.strict && !ok {
+			return nil, ErrMissingStrategy
+		}
+
 		if ok {
 			if f.CanAddr() {
 				values[i] = f.Addr().Interface()
 			} else if f.CanInterface() {
 				values[i] = f.Interface()
 			}
+		}
+
+		// TODO Going forwards, passing a nil value to the gocql driver
+		// might be a valid approach, but for now, we're going to try
+		// avoid confusing people with reflect panics
+		if values[i] == nil {
+			return nil, ErrMissingStrategy
 		}
 	}
 

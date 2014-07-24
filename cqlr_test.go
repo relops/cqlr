@@ -171,6 +171,13 @@ func TestHighLevelAPIOnly(t *testing.T) {
 		Payload    []byte
 	}
 
+	strategy := map[string]string{
+		"id":   "Identifier",
+		"unix": "Epoch",
+		"usr":  "User",
+		"msg":  "Payload",
+	}
+
 	s := setup(t, "queue")
 
 	msgs := 163
@@ -181,20 +188,22 @@ func TestHighLevelAPIOnly(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := s.Query(`INSERT INTO queue (id, unix, usr, msg) VALUES (?, ?, ?, ?)`,
-			gocql.TimeUUID(), time.Now().Unix(), "deamon", msg).Exec(); err != nil {
+
+		m := Message{
+			Identifier: gocql.TimeUUID(),
+			Epoch:      time.Now().Unix(),
+			User:       "deamon",
+			Payload:    msg,
+		}
+
+		if err := Bind(`INSERT INTO queue (id, unix, usr, msg) VALUES (?, ?, ?, ?)`, m).Map(strategy).Exec(s); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	q := s.Query(`SELECT id, unix, usr, msg FROM queue`)
 
-	b := BindQuery(q).Map(map[string]string{
-		"id":   "Identifier",
-		"unix": "Epoch",
-		"usr":  "User",
-		"msg":  "Payload",
-	})
+	b := BindQuery(q).Map(strategy)
 
 	count := 0
 	var m Message
