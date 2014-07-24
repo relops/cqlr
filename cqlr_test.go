@@ -54,7 +54,7 @@ func TestReflectionOnly(t *testing.T) {
 func TestTagsOnly(t *testing.T) {
 
 	type Reading struct {
-		What    int32     `cql:"id"`
+		What    int       `cql:"id"`
 		When    time.Time `cql:"timestamp"`
 		HowMuch float32   `cql:"temperature"`
 	}
@@ -64,8 +64,13 @@ func TestTagsOnly(t *testing.T) {
 	measurements := 11
 
 	for i := 0; i < measurements; i++ {
-		if err := s.Query(`INSERT INTO sensors (id, timestamp, temperature) VALUES (?, ?, ?)`,
-			i, time.Now(), float32(1)/3).Exec(); err != nil {
+		r := Reading{
+			What:    i,
+			When:    time.Now(),
+			HowMuch: float32(1) / 3,
+		}
+
+		if err := Bind(`INSERT INTO sensors (id, timestamp, temperature) VALUES (?, ?, ?)`, r).Exec(s); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -75,7 +80,7 @@ func TestTagsOnly(t *testing.T) {
 	b := BindQuery(q)
 
 	count := 0
-	total := int32(0)
+	total := 0
 	var r Reading
 
 	for b.Scan(&r) {

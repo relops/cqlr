@@ -34,13 +34,24 @@ func (b *Binding) Exec(s *gocql.Session) error {
 
 func (b *Binding) bind(q *gocql.QueryInfo) ([]interface{}, error) {
 	values := make([]interface{}, len(q.Args))
-
 	value := reflect.ValueOf(b.arg)
 
-	for i, info := range q.Args {
-		fieldName := upcaseInitial(info.Name)
-		field := reflect.Indirect(value).FieldByName(fieldName)
-		values[i] = field.Interface()
+	if !b.isCompiled {
+		if err := b.compile(value, q.Args); err != nil {
+			return nil, err
+		}
+	}
+
+	for i, col := range q.Args {
+		f, ok := b.strategy[col.Name]
+
+		if ok {
+			if f.CanAddr() {
+				values[i] = f.Addr().Interface()
+			} else if f.CanInterface() {
+				values[i] = f.Interface()
+			}
+		}
 	}
 
 	return values, nil
