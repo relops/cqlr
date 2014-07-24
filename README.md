@@ -12,8 +12,10 @@ type Tweet struct {
 	Text     string     `cql:"text"`
 }
 
-iter := s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me").Iter()
-b := cqlr.Bind(iter)
+var s *gocql.Session
+
+q := s.Query(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, "me")
+b := cqlr.BindQuery(q)
 
 var t Tweet
 for b.Scan(&t) {
@@ -21,9 +23,43 @@ for b.Scan(&t) {
 }
 ```
 
+You can also bind structs to INSERT statements:
+
+```go
+tw := Tweet{
+	Timeline: "me",
+	Id:       gocql.TimeUUID(),
+	Text:     "some random message",
+}
+
+var s *gocql.Session
+
+b := Bind(`INSERT INTO tweet (timeline, id, text) VALUES (?, ?, ?)`, tw)
+if err := b.Exec(s); err != nil {
+	// .....
+}
+```
+
+## Supported CQL Operations
+
+* SELECT with `BindQuery()` and `Scan()`
+* INSERT with `Bind()`
+
+## Not Yet Supported CQL Operations
+
+* UPDATE
+* DELETE
+* SELECT with `Bind()` and `Scan()`
+
+## Feature Roadmap
+
+* Support for all
+* Batching
+* Re-binding new struct instances to existing binding instances
+
 ## Supported Binding Mechanisms
 
-Right now, cqlr supports the following mechanisms to auto-bind iterators:
+Right now, cqlr supports the following mechanisms to bind iterators:
 
 * Application supplied binding function
 * Map of column name to struct field name
@@ -32,7 +68,7 @@ Right now, cqlr supports the following mechanisms to auto-bind iterators:
 
 ## Cassandra Support
 
-Right now cqlr is tested against Cassandra 2.0.9.
+Right now cqlr is known to work against Cassandra 2.0.9.
 
 ## Motivation
 
@@ -40,7 +76,12 @@ gocql users are looking for ways to automatically bind query results to applicat
 
 ## Design
 
-cqlr should sit on top of the core gocql runtime and concern itself only with struct binding. The binding object is a stateful instance that wraps a gocql `Iter` and performs runtime introspection of the target struct. The binding is specifically stateful so that down the line, the first loop execution can perform expensive introspection and subsequent loop invocations can benefit from this cached runtime metadata. So in a sense, it is a bit like [cqlc][], except that the metadata processing is done on the first loop, rather than at compile time.
+cqlr should sit on top of the core gocql runtime and concern itself only with struct binding. There are two modes of operation:
+
+* Binding a struct's fields to the query parameters of a particular statement using `Bind()`
+* Wrapping a gocql `*Query` instance to perform runtime introspection of the target struct in conjunction with meta data provided by the query result
+
+The binding is specifically stateful so that down the line, the first loop execution can perform expensive introspection and subsequent loop invocations can benefit from this cached runtime metadata. So in a sense, it is a bit like [cqlc][], except that the metadata processing is done on the first loop, rather than at compile time.
 
 ## Status
 
