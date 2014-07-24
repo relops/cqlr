@@ -56,6 +56,7 @@ if err := b.Exec(s); err != nil {
 * Support for all CQL operations
 * Batching
 * Re-binding new struct instances to existing binding instances
+* Protoype guess-based CQL CRUD  
 * Investigate implementing the `skip metadata flag in EXECUTE` with the gocql driver
 * Consider exposing a low level binary interface in gocql that handles query argument marshaling
 
