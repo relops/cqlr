@@ -369,6 +369,28 @@ func TestIgnoreUnknownColumns(t *testing.T) {
 	assert.Nil(t, err, "Could not close binding")
 }
 
+//TestCasedColumns is a test case to illustrate the query is case sensitive.
+func TestCasedColumns(t *testing.T) {
+
+	type Tweet struct {
+		TimeLine string
+		Id       gocql.UUID
+		Text     string
+	}
+
+	s := setup(t, "tweet")
+
+	tw := Tweet{
+		TimeLine: "me",
+		Id:       gocql.TimeUUID(),
+		Text:     fmt.Sprintf("hello world %d", 1),
+	}
+
+	if err := Bind(`INSERT INTO tweet (Timeline, Id, Text) VALUES (?, ?, ?)`, tw).Exec(s); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func setup(t *testing.T, table string) *gocql.Session {
 	cluster := gocql.NewCluster("127.0.0.1")
 	cluster.Keyspace = "cqlr"
