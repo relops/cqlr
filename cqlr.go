@@ -42,6 +42,10 @@ func (b *Binding) Exec(s *gocql.Session) error {
 	return s.Bind(b.stmt, b.bind).Exec()
 }
 
+func (b *Binding) Query(s *gocql.Session) *gocql.Query {
+	return s.Bind(b.stmt, b.bind)
+}
+
 func (b *Binding) Use(f func(gocql.ColumnInfo) (reflect.StructField, bool)) *Binding {
 	b.fun = f
 	return b
