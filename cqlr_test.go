@@ -398,6 +398,7 @@ func TestCasedColumns(t *testing.T) {
 
 	type Tweet struct {
 		TimeLine string
+		Timeline string
 		Id       gocql.UUID
 		Text     string
 	}
@@ -407,11 +408,12 @@ func TestCasedColumns(t *testing.T) {
 
 	tw := Tweet{
 		TimeLine: "me",
+		Timeline: "me",
 		Id:       gocql.TimeUUID(),
 		Text:     fmt.Sprintf("hello world %d", 1),
 	}
 
-	if err := Bind(`INSERT INTO tweetcase ("timeLine", Id, Text) VALUES (?, ?, ?)`, tw).Exec(s); err != nil {
+	if err := Bind(`INSERT INTO tweetcase ("timeLine", timeline, Id, Text) VALUES (?,?, ?, ?)`, tw).Exec(s); err != nil {
 		t.Fatal(err)
 	}
 

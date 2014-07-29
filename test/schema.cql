@@ -9,6 +9,7 @@ CREATE TABLE tweet
 CREATE TABLE tweetcase
 (
     "timeLine" ascii,
+    timeline ascii,
     id timeuuid,
     text text,
     PRIMARY KEY ("timeLine",id)
