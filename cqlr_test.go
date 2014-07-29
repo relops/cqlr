@@ -63,6 +63,24 @@ func TestReflectionOnly(t *testing.T) {
 	err = b.Close()
 	assert.Nil(t, err, "Could not close binding")
 	assert.Equal(t, tweets, count)
+
+	tw.Text = "goodbye world"
+
+	if err := Bind(`UPDATE tweet SET text = ? WHERE timeline = ? and id = ?`, tw).Exec(s); err != nil {
+		t.Fatal(err)
+	}
+
+	q = s.Query(`SELECT text FROM tweet WHERE timeline = ? and id = ?`, tw.Timeline, tw.Id)
+	b = BindQuery(q)
+
+	count = 0
+
+	var updated Tweet
+	for b.Scan(&updated) {
+		count++
+	}
+	assert.Equal(t, 1, count)
+	assert.Equal(t, "goodbye world", updated.Text)
 }
 
 func TestTagsOnly(t *testing.T) {
