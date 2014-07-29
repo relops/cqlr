@@ -145,8 +145,9 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 		tag := f.Tag.Get("cql")
 		if tag != "" {
 			b.strategy[tag] = indirect.Field(i)
+		} else {
+			b.fieldMap[strings.ToLower(f.Name)] = f.Index
 		}
-		b.fieldMap[strings.ToLower(f.Name)] = f.Index
 	}
 
 	if b.fun != nil {
@@ -172,7 +173,10 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 
 		_, ok := b.strategy[col.Name]
 		if !ok {
-			index, ok := b.fieldMap[strings.ToLower(col.Name)]
+			index, ok := b.fieldMap[col.Name]
+			if !ok {
+				index, ok = b.fieldMap[strings.ToLower(col.Name)]
+			}
 			if ok {
 				f := indirect.FieldByIndex(index)
 				if f.IsValid() {

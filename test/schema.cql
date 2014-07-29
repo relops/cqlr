@@ -6,6 +6,15 @@ CREATE TABLE tweet
     PRIMARY KEY (timeline,id)
 );
 
+CREATE TABLE tweetcase
+(
+    "timeLine" ascii,
+    timeline ascii,
+    id timeuuid,
+    text text,
+    PRIMARY KEY ("timeLine",id)
+);
+
 CREATE TABLE sensors
 (    
     id int,
