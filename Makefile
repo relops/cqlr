@@ -13,4 +13,7 @@ test: test/kitchen_sink_data.go schema
 	go test -v .
 	go test -v ./test
 
+sink: test/kitchen_sink_data.go schema
+	go test -v ./test
+
 test_data: test/kitchen_sink_data.go

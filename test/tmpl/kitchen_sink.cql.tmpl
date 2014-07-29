@@ -8,5 +8,18 @@ CREATE TABLE kitchen_sink
     {{ $t.Pre }}column {{ $t.Cql }},
     {{ end }}
 
+    {{ range $_, $t := .types }}
+    {{ $t.Pre }}listcolumn list<{{ $t.Cql }}>,
+    {{ end }}
+
+    {{ $inner := .types }}
+	{{ $outer := .types }}
+
+	{{ range $_, $ot := $outer }}
+	{{ range $_, $it := $inner }}
+	{{ if ne $ot.Pre "Bytes" }}
+	{{ $ot.Pre }}{{ $it.Pre }}column map<{{ $ot.Cql }},{{ $it.Cql }}>,
+	{{ end }}{{ end }}{{ end }}
+
     PRIMARY KEY (id)
 );

@@ -51,6 +51,7 @@ func TestKitchenSink(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, count)
+	assert.Equal(t, k, nk)
 }
 
 func setup(t *testing.T, table string) *gocql.Session {
