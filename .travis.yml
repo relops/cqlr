@@ -8,7 +8,8 @@ before_install:
   - export PATH=$PATH:/home/travis/gopath/bin:/usr/local/cassandra/bin
 
 install: 
-  - go get -v ./...
+  - go get -v .
 
 script:
+  - make test
   - bash integration.sh
