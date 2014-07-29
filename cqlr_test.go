@@ -446,7 +446,7 @@ func TestNoCaseColumns(t *testing.T) {
 func TestCasedColumns(t *testing.T) {
 
 	type Tweet struct {
-		TimeLine string
+		TimeLine string `cql:"timeLine"`
 		Timeline string
 		Id       gocql.UUID
 		Text     string
