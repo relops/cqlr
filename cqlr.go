@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/gocql/gocql"
 	"reflect"
-	"unicode"
+	"strings"
 )
 
 type Binding struct {
@@ -18,18 +18,32 @@ type Binding struct {
 	strategy   map[string]reflect.Value
 	fun        func(gocql.ColumnInfo) (reflect.StructField, bool)
 	typeMap    map[string]string
+	fieldMap   map[string][]int
 }
 
 func BindQuery(q *gocql.Query) *Binding {
-	return &Binding{qry: q, strategy: make(map[string]reflect.Value)}
+	return &Binding{
+		qry:      q,
+		strategy: make(map[string]reflect.Value),
+		fieldMap: make(map[string][]int),
+	}
 }
 
 func Bind(s string, v interface{}) *Binding {
-	return &Binding{stmt: s, arg: v, strategy: make(map[string]reflect.Value)}
+	return &Binding{
+		stmt:     s,
+		arg:      v,
+		strategy: make(map[string]reflect.Value),
+		fieldMap: make(map[string][]int),
+	}
 }
 
 func (b *Binding) Exec(s *gocql.Session) error {
 	return s.Bind(b.stmt, b.bind).Exec()
+}
+
+func (b *Binding) Query(s *gocql.Session) *gocql.Query {
+	return s.Bind(b.stmt, b.bind)
 }
 
 func (b *Binding) Use(f func(gocql.ColumnInfo) (reflect.StructField, bool)) *Binding {
@@ -132,6 +146,7 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 		if tag != "" {
 			b.strategy[tag] = indirect.Field(i)
 		}
+		b.fieldMap[strings.ToLower(f.Name)] = f.Index
 	}
 
 	if b.fun != nil {
@@ -157,14 +172,12 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 
 		_, ok := b.strategy[col.Name]
 		if !ok {
-
-			f := indirect.FieldByName(col.Name)
-			if !f.IsValid() {
-				f = indirect.FieldByName(upcaseInitial(col.Name))
-			}
-
-			if f.IsValid() {
-				b.strategy[col.Name] = f
+			index, ok := b.fieldMap[strings.ToLower(col.Name)]
+			if ok {
+				f := indirect.FieldByIndex(index)
+				if f.IsValid() {
+					b.strategy[col.Name] = f
+				}
 			}
 		}
 	}
@@ -178,13 +191,6 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 	b.isCompiled = true
 
 	return nil
-}
-
-func upcaseInitial(str string) string {
-	for i, v := range str {
-		return string(unicode.ToUpper(v)) + str[i+1:]
-	}
-	return ""
 }
 
 var (

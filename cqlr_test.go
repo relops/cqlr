@@ -49,6 +49,55 @@ func TestReflectionOnly(t *testing.T) {
 	err := b.Close()
 	assert.Nil(t, err, "Could not close binding")
 	assert.Equal(t, tweets, count)
+
+	q = Bind(`SELECT text, id, timeline FROM tweet WHERE timeline = ?`, Tweet{Timeline: "me"}).Query(s)
+	b = BindQuery(q)
+
+	count = 0
+
+	for b.Scan(&tw) {
+		count++
+		assert.Equal(t, "me", tw.Timeline)
+	}
+
+	err = b.Close()
+	assert.Nil(t, err, "Could not close binding")
+	assert.Equal(t, tweets, count)
+
+	tw.Text = "goodbye world"
+
+	if err := Bind(`UPDATE tweet SET text = ? WHERE timeline = ? and id = ?`, tw).Exec(s); err != nil {
+		t.Fatal(err)
+	}
+
+	q = s.Query(`SELECT text FROM tweet WHERE timeline = ? and id = ?`, tw.Timeline, tw.Id)
+	b = BindQuery(q)
+
+	count = 0
+
+	var updated Tweet
+	for b.Scan(&updated) {
+		count++
+	}
+
+	err = b.Close()
+	assert.Nil(t, err, "Could not close binding")
+	assert.Equal(t, 1, count)
+	assert.Equal(t, "goodbye world", updated.Text)
+
+	if err := Bind(`DELETE FROM tweet WHERE timeline = ? and id = ?`, tw).Exec(s); err != nil {
+		t.Fatal(err)
+	}
+
+	count = 0
+	q = s.Query(`SELECT count(*) FROM tweet WHERE timeline = ? and id = ?`, tw.Timeline, tw.Id)
+	iter := q.Iter()
+	for iter.Scan(&count) {
+	}
+
+	err = iter.Close()
+	assert.Nil(t, err, "Could not close iterator")
+	assert.Equal(t, 0, count)
 }
 
 func TestTagsOnly(t *testing.T) {
@@ -408,7 +457,7 @@ func TestCasedColumns(t *testing.T) {
 
 	tw := Tweet{
 		TimeLine: "me",
-		Timeline: "me",
+		Timeline: "me2",
 		Id:       gocql.TimeUUID(),
 		Text:     fmt.Sprintf("hello world %d", 1),
 	}
@@ -417,6 +466,18 @@ func TestCasedColumns(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	q := s.Query(`SELECT "timeLine", timeline, Id, Text FROM tweetcase`)
+
+	b := BindQuery(q)
+
+	var twr Tweet
+
+	for b.Scan(&twr) {
+		assert.Equal(t, tw, twr)
+	}
+
+	err := b.Close()
+	assert.Nil(t, err, "Could not close binding")
 }
 
 func setup(t *testing.T, table string) *gocql.Session {
