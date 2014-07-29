@@ -79,8 +79,25 @@ func TestReflectionOnly(t *testing.T) {
 	for b.Scan(&updated) {
 		count++
 	}
+
+	err = b.Close()
+	assert.Nil(t, err, "Could not close binding")
 	assert.Equal(t, 1, count)
 	assert.Equal(t, "goodbye world", updated.Text)
+
+	if err := Bind(`DELETE FROM tweet WHERE timeline = ? and id = ?`, tw).Exec(s); err != nil {
+		t.Fatal(err)
+	}
+
+	count = 0
+	q = s.Query(`SELECT count(*) FROM tweet WHERE timeline = ? and id = ?`, tw.Timeline, tw.Id)
+	iter := q.Iter()
+	for iter.Scan(&count) {
+	}
+
+	err = iter.Close()
+	assert.Nil(t, err, "Could not close iterator")
+	assert.Equal(t, 0, count)
 }
 
 func TestTagsOnly(t *testing.T) {
