@@ -44,12 +44,13 @@ if err := b.Exec(s); err != nil {
 
 * SELECT with `BindQuery()`, `Bind()` and `Scan()`
 * INSERT, UPDATE and DELETE with `Bind()`
+* Maps and Lists (without deltafication)
 
 ## Not Yet Supported CQL Operations
 
 * CAS
 * Counters
-* Maps/Lists/Sets
+* Sets
 
 ## Feature Roadmap
 
