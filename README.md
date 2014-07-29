@@ -42,16 +42,18 @@ if err := b.Exec(s); err != nil {
 
 ## Supported CQL Operations
 
-* SELECT with `BindQuery()` and `Scan()`
-* INSERT with `Bind()`
+* SELECT with `BindQuery()`, `Bind()` and `Scan()`
+* INSERT, UPDATE and DELETE with `Bind()`
 
 ## Not Yet Supported CQL Operations
 
-* UPDATE
-* DELETE
-* SELECT with `Bind()` and `Scan()`
+* CAS
+* Counters
+* Maps/Lists/Sets
 
 ## Feature Roadmap
+
+(In no particular order of priority)
 
 * Support for all CQL operations
 * Batching
