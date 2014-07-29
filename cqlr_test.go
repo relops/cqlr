@@ -418,8 +418,8 @@ func TestIgnoreUnknownColumns(t *testing.T) {
 	assert.Nil(t, err, "Could not close binding")
 }
 
-//TestCasedColumns is a test case to illustrate the query is case sensitive.
-func TestCasedColumns(t *testing.T) {
+//TestNoCaseColumns is a test case to verify case insensitive columns are mapped properly
+func TestNoCaseColumns(t *testing.T) {
 
 	type Tweet struct {
 		TimeLine string
@@ -428,6 +428,7 @@ func TestCasedColumns(t *testing.T) {
 	}
 
 	s := setup(t, "tweet")
+	defer s.Close()
 
 	tw := Tweet{
 		TimeLine: "me",
@@ -435,9 +436,48 @@ func TestCasedColumns(t *testing.T) {
 		Text:     fmt.Sprintf("hello world %d", 1),
 	}
 
-	if err := Bind(`INSERT INTO tweet (Timeline, Id, Text) VALUES (?, ?, ?)`, tw).Exec(s); err != nil {
+	if err := Bind(`INSERT INTO tweet (timeline, Id, Text) VALUES (?, ?, ?)`, tw).Exec(s); err != nil {
 		t.Fatal(err)
 	}
+
+}
+
+//TestCasedColumns is a test case to verify case sensitive columns are mapped properly
+func TestCasedColumns(t *testing.T) {
+
+	type Tweet struct {
+		TimeLine string
+		Timeline string
+		Id       gocql.UUID
+		Text     string
+	}
+
+	s := setup(t, "tweetcase")
+	defer s.Close()
+
+	tw := Tweet{
+		TimeLine: "me",
+		Timeline: "me2",
+		Id:       gocql.TimeUUID(),
+		Text:     fmt.Sprintf("hello world %d", 1),
+	}
+
+	if err := Bind(`INSERT INTO tweetcase ("timeLine", timeline, Id, Text) VALUES (?,?, ?, ?)`, tw).Exec(s); err != nil {
+		t.Fatal(err)
+	}
+
+	q := s.Query(`SELECT "timeLine", timeline, Id, Text FROM tweetcase`)
+
+	b := BindQuery(q)
+
+	var twr Tweet
+
+	for b.Scan(&twr) {
+		assert.Equal(t, tw, twr)
+	}
+
+	err := b.Close()
+	assert.Nil(t, err, "Could not close binding")
 }
 
 func setup(t *testing.T, table string) *gocql.Session {
