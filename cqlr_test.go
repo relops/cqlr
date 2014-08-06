@@ -418,6 +418,53 @@ func TestIgnoreUnknownColumns(t *testing.T) {
 	assert.Nil(t, err, "Could not close binding")
 }
 
+func TestRebind(t *testing.T) {
+
+	type Complex struct {
+		Id        int
+		Value     string
+		Timestamp time.Time
+	}
+
+	s := setup(t, "partial")
+
+	if err := s.Query(`INSERT INTO partial (id, value) VALUES (?, ?)`, 122, "bar").Exec(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Query(`INSERT INTO partial (id, value) VALUES (?, ?)`, 123, "foo").Exec(); err != nil {
+		t.Fatal(err)
+	}
+
+	q := s.Query(`SELECT id, value FROM partial WHERE id = ?`, 122)
+
+	b := BindQuery(q)
+
+	var c Complex
+
+	for b.Scan(&c) {
+		assert.Equal(t, 122, c.Id)
+		assert.Equal(t, "bar", c.Value)
+		assert.True(t, time.Time.IsZero(c.Timestamp))
+	}
+
+	err := b.Close()
+	assert.Nil(t, err, "Could not close binding")
+
+	b.Bind(123)
+
+	assert.True(t, b.isCompiled)
+
+	for b.Scan(&c) {
+		assert.Equal(t, 123, c.Id)
+		assert.Equal(t, "foo", c.Value)
+		assert.True(t, time.Time.IsZero(c.Timestamp))
+	}
+
+	err = b.Close()
+	assert.Nil(t, err, "Could not close binding")
+}
+
 //TestNoCaseColumns is a test case to verify case insensitive columns are mapped properly
 func TestNoCaseColumns(t *testing.T) {
 

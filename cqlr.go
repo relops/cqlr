@@ -38,6 +38,15 @@ func Bind(s string, v interface{}) *Binding {
 	}
 }
 
+func (b *Binding) Bind(v interface{}) *Binding {
+	if b.qry == nil {
+		b.arg = v
+	} else {
+		b.qry.Bind(v)
+	}
+	return b
+}
+
 func (b *Binding) Exec(s *gocql.Session) error {
 	return s.Bind(b.stmt, b.bind).Exec()
 }
