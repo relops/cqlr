@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#set -e
+set -e
 
 PID_FILE=cassandra.pid
 STARTUP_LOG=startup.log
