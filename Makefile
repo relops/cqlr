@@ -5,7 +5,7 @@ test/kitchen_sink.cql: test/tmpl/kitchen_sink.cql.tmpl test/kitchen_sink_generat
 	cd test; go run kitchen_sink_generator.go
 
 schema: test/kitchen_sink.cql
-	cqlsh -f test/keyspace.cql
+	-cqlsh -f test/keyspace.cql
 	cqlsh -k cqlr -f test/schema.cql
 	cqlsh -k cqlr -f test/kitchen_sink.cql
 
