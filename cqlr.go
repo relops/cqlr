@@ -125,10 +125,10 @@ func (b *Binding) bind(q *gocql.QueryInfo) ([]interface{}, error) {
 		}
 
 		if ok {
-			if f.CanAddr() {
-				values[i] = f.Addr().Interface()
-			} else if f.CanInterface() {
+			if f.CanInterface() {
 				values[i] = f.Interface()
+			} else if f.CanAddr() {
+				values[i] = f.Addr().Interface()
 			}
 		}
 

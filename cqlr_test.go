@@ -506,7 +506,7 @@ func TestUUID(t *testing.T) {
 		Text: "hello world",
 	}
 
-	if err := Bind(`INSERT INTO key_value (key, value) VALUES (?, ?)`, kv).Exec(s); err != nil {
+	if err := Bind(`INSERT INTO key_value (key, value) VALUES (?, ?)`, &kv).Exec(s); err != nil {
 		t.Fatal(err)
 	}
 
