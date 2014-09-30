@@ -489,6 +489,41 @@ func TestNoCaseColumns(t *testing.T) {
 
 }
 
+func TestUUID(t *testing.T) {
+	type KeyValue struct {
+		Id   gocql.UUID `json:"id" cql:"key"`
+		Text string     `json:"id" cql:"value"`
+	}
+
+	s := setup(t, "key_value")
+	defer s.Close()
+
+	id, err := gocql.RandomUUID()
+	assert.NoError(t, err)
+
+	kv := KeyValue{
+		Id:   id,
+		Text: "hello world",
+	}
+
+	if err := Bind(`INSERT INTO key_value (key, value) VALUES (?, ?)`, kv).Exec(s); err != nil {
+		t.Fatal(err)
+	}
+
+	q := s.Query(`SELECT key, value FROM key_value LIMIT 1`)
+	b := BindQuery(q)
+
+	var read KeyValue
+
+	b.Scan(&read)
+	if err := b.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, kv, read)
+
+}
+
 //TestCasedColumns is a test case to verify case sensitive columns are mapped properly
 func TestCasedColumns(t *testing.T) {
 

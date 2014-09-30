@@ -57,3 +57,10 @@ CREATE TABLE partial
     value ascii,    
     PRIMARY KEY (id)
 );
+
+CREATE TABLE key_value
+(    
+    key uuid,
+    value ascii,    
+    PRIMARY KEY (key)
+);
