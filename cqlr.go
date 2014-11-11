@@ -71,7 +71,15 @@ func (b *Binding) Strict() *Binding {
 }
 
 func (b *Binding) Close() error {
-	return b.err
+	if b.err != nil {
+		return b.err
+	}
+
+	if err := b.iter.Close(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (b *Binding) Scan(dest interface{}) bool {
