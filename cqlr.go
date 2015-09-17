@@ -151,6 +151,15 @@ func (b *Binding) bind(q *gocql.QueryInfo) ([]interface{}, error) {
 	return values, nil
 }
 
+func (b *Binding) addStrategy(tag string, value reflect.Value) error {
+	if _, ok := b.strategy[tag]; ok {
+		return ErrMultipleFieldsWithTheSameTag
+	}
+
+	b.strategy[tag] = value
+	return nil
+}
+
 func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 
 	indirect := reflect.Indirect(v)
@@ -161,7 +170,9 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 		f := s.Field(i)
 		tag := f.Tag.Get("cql")
 		if tag != "" {
-			b.strategy[tag] = indirect.Field(i)
+			if err := b.addStrategy(tag, indirect.Field(i)); err != nil {
+				return err
+			}
 		} else {
 			b.fieldMap[strings.ToLower(f.Name)] = f.Index
 		}
@@ -171,7 +182,9 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 		for _, col := range cols {
 			staticField, ok := b.fun(col)
 			if ok {
-				b.strategy[col.Name] = indirect.FieldByIndex(staticField.Index)
+				if err := b.addStrategy(col.Name, indirect.FieldByIndex(staticField.Index)); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -181,7 +194,9 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 			fieldName, ok := b.typeMap[col.Name]
 			if ok {
 				f := indirect.FieldByName(fieldName)
-				b.strategy[col.Name] = f
+				if err := b.addStrategy(col.Name, f); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -197,7 +212,9 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 			if ok {
 				f := indirect.FieldByIndex(index)
 				if f.IsValid() {
-					b.strategy[col.Name] = f
+					if err := b.addStrategy(col.Name, f); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -215,5 +232,6 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 }
 
 var (
-	ErrMissingStrategy = errors.New("insufficient column mapping")
+	ErrMissingStrategy              = errors.New("insufficient column mapping")
+	ErrMultipleFieldsWithTheSameTag = errors.New("multiple fields with the same tag")
 )
