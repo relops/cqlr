@@ -489,6 +489,24 @@ func TestNoCaseColumns(t *testing.T) {
 
 }
 
+func TestDoubleTag(t *testing.T) {
+	type DoubleTag struct {
+		Id   gocql.UUID `json:"id" cql:"key"`
+		Text string     `json:"id" cql:"key"`
+	}
+	s := setup(t, "key_value")
+	defer s.Close()
+
+	q := s.Query(`SELECT key, value FROM key_value LIMIT 1`)
+	b := BindQuery(q)
+
+	var read DoubleTag
+
+	b.Scan(&read)
+	err := b.Close()
+	assert.Equal(t, ErrMultipleFieldsWithTheSameTag, err)
+}
+
 func TestUUID(t *testing.T) {
 	type KeyValue struct {
 		Id   gocql.UUID `json:"id" cql:"key"`
