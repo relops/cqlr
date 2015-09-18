@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/gocql/gocql"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/inf.v0"
 	"reflect"
-	"speter.net/go/exp/math/dec/inf"
 	"testing"
 	"time"
 )
