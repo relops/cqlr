@@ -6,6 +6,7 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/relops/cqlr"
 	"github.com/stretchr/testify/assert"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -51,7 +52,7 @@ func TestKitchenSink(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, count)
-	assert.Equal(t, k, nk)
+	assert.True(t, reflect.DeepEqual(k, nk))
 }
 
 func setup(t *testing.T, table string) *gocql.Session {
