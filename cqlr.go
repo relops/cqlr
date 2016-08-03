@@ -180,6 +180,9 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 		tag := f.Tag.Get("cql")
+		if tag == "" {
+			tag = f.Tag.Get("json")
+		}
 		if tag != "" {
 			b.strategy[tag] = indirect.Field(i)
 		} else {
