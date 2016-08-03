@@ -82,6 +82,26 @@ func (b *Binding) Close() error {
 	return nil
 }
 
+func (b *Binding) ScanMany(dest interface{}) (int, error) {
+
+	v := reflect.ValueOf(dest)
+
+	if v.Kind() != reflect.Ptr || v.IsNil() {
+		return 0, ErrInvalidPtrToSlice
+	}
+
+	sp := v.Elem()
+	ep := reflect.New(reflect.TypeOf(dest).Elem().Elem())
+
+	i := 0
+	for b.Scan(ep.Interface()) {
+		sp.Set(reflect.Append(sp, reflect.Indirect(ep)))
+		i = i + 1
+	}
+
+	return i, nil
+}
+
 func (b *Binding) Scan(dest interface{}) bool {
 
 	v := reflect.ValueOf(dest)
@@ -215,5 +235,6 @@ func (b *Binding) compile(v reflect.Value, cols []gocql.ColumnInfo) error {
 }
 
 var (
-	ErrMissingStrategy = errors.New("insufficient column mapping")
+	ErrMissingStrategy   = errors.New("insufficient column mapping")
+	ErrInvalidPtrToSlice = errors.New("Invalid pointer to slice")
 )
